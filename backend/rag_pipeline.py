@@ -2,15 +2,17 @@ import os
 import faiss
 import numpy as np
 from dotenv import load_dotenv
-from sentence_transformers import SentenceTransformer
 import google.generativeai as genai
+from google import genai as google_genai
 
 load_dotenv()
+
 key = os.getenv("GOOGLE_API_KEY")
 print(f"🔑 API Key loaded: {'YES ✅' if key else 'NO ❌ — check your .env file'}")
+embedding_client = google_genai.Client(api_key=key)
+
 genai.configure(api_key=key)
 
-embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
 faiss_index = None
 text_chunks = []
 
@@ -18,35 +20,86 @@ text_chunks = []
 def split_text_into_chunks(text: str, chunk_size: int = 500, overlap: int = 50) -> list:
     chunks = []
     start = 0
+
     while start < len(text):
         end = start + chunk_size
-        chunks.append(text[start:end])
+        chunk = text[start:end].strip()
+
+        if chunk:
+            chunks.append(chunk)
+
         start += chunk_size - overlap
+
     print(f"✅ Split text into {len(chunks)} chunks")
     return chunks
 
 
+def get_embedding(text: str) -> np.ndarray:
+    result = embedding_client.models.embed_content(
+        model="gemini-embedding-001",
+        contents=text
+    )
+    return np.array(result.embeddings[0].values, dtype="float32")
+
+
+def get_query_embedding(question: str) -> np.ndarray:
+    result = embedding_client.models.embed_content(
+        model="gemini-embedding-001",
+        contents=question
+    )
+    return np.array(result.embeddings[0].values, dtype="float32")
+
+
 def create_vectorstore(text: str):
     global faiss_index, text_chunks
+
     text_chunks = split_text_into_chunks(text)
-    print("⏳ Creating embeddings...")
-    embeddings = embedding_model.encode(text_chunks, show_progress_bar=True)
-    embeddings = np.array(embeddings).astype("float32")
+
+    if not text_chunks:
+        faiss_index = None
+        print("❌ No text chunks found")
+        return
+
+    print("⏳ Creating Gemini embeddings...")
+
+    embeddings = np.array(
+        [get_embedding(chunk) for chunk in text_chunks],
+        dtype="float32"
+    )
+
     dimension = embeddings.shape[1]
+
     faiss_index = faiss.IndexFlatL2(dimension)
     faiss_index.add(embeddings)
+
     print(f"✅ FAISS index created with {faiss_index.ntotal} vectors")
 
 
 def retrieve_relevant_chunks(question: str, top_k: int = 5) -> list:
-    question_embedding = embedding_model.encode([question])
-    question_embedding = np.array(question_embedding).astype("float32")
+    global faiss_index, text_chunks
+
+    if faiss_index is None or len(text_chunks) == 0:
+        return []
+
+    question_embedding = np.array(
+        [get_query_embedding(question)],
+        dtype="float32"
+    )
+
+    top_k = min(top_k, len(text_chunks))
+
     distances, indices = faiss_index.search(question_embedding, top_k)
-    return [text_chunks[i] for i in indices[0] if i < len(text_chunks)]
+
+    return [
+        text_chunks[i]
+        for i in indices[0]
+        if 0 <= i < len(text_chunks)
+    ]
 
 
 def ask_question(question: str) -> str:
-    global faiss_index
+    global faiss_index, text_chunks
+
     if faiss_index is None or len(text_chunks) == 0:
         return "❌ No PDF uploaded yet. Please upload a PDF first."
 
@@ -56,12 +109,14 @@ def ask_question(question: str) -> str:
         "tell me about", "what does this pdf", "give me overview",
         "describe this", "explain this pdf", "what is this pdf"
     ]
+
     is_overview = any(word in question.lower() for word in overview_keywords)
 
     if is_overview:
         top_k = min(15, len(text_chunks))
         prompt_instruction = """Provide a concise but complete overview of the entire document.
-Cover all main topics including: projects, skills, education, experience, certifications, and key highlights.
+Cover all main topics such as projects, skills, education, experience, certifications, important concepts, and key highlights if they are present.
+Do not mention topics that are not present in the PDF.
 Structure your answer in a readable way."""
     else:
         top_k = 5
@@ -72,6 +127,7 @@ If the answer is not found in the context, say "I couldn't find this information
     context = "\n\n".join(relevant_chunks)
 
     prompt = f"""You are a helpful assistant analyzing a PDF document.
+
 {prompt_instruction}
 
 Context from PDF:
@@ -85,20 +141,26 @@ Answer:"""
         model = genai.GenerativeModel("gemini-1.5-flash")
         response = model.generate_content(prompt)
         return response.text
+
     except Exception as e:
         print(f"⚠️ gemini-1.5-flash failed: {e}")
+
         try:
             available = [
                 m.name for m in genai.list_models()
                 if "generateContent" in m.supported_generation_methods
                 and "flash" in m.name
             ]
+
             print(f"Available flash models: {available}")
+
             if not available:
                 return "❌ No Gemini models available for your API key."
+
             model = genai.GenerativeModel(available[0])
             response = model.generate_content(prompt)
             return response.text
+
         except Exception as e2:
             print(f"❌ Fallback also failed: {e2}")
             return f"❌ AI error: {str(e2)}"

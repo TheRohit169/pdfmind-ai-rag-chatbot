@@ -1,12 +1,9 @@
-flask
+Flask
 flask-cors
-langchain
-langchain-community
-langchain-google-genai
-faiss-cpu
-pypdf
 python-dotenv
-sentence-transformers
+pypdf
+faiss-cpu
+google-genai
 google-generativeai
 numpy
 gunicorn
