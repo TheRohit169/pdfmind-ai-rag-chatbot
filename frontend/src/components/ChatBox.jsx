@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import axios from "axios";
 import Message from "./Message";
 
-const API = "http://localhost:5000";
+const API = "https://pdfmind-ai-rag-chatbot-backend.onrender.com";
 
 export default function ChatBox({ pdfReady }) {
   const [messages, setMessages] = useState([]);
