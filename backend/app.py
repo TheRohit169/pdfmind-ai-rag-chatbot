@@ -10,7 +10,6 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
 ALLOWED_ORIGINS = [
-    "http://localhost:5173",
     "https://pdfmind-ai-rag-chatbot.vercel.app"
 ]
 
