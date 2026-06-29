@@ -10,9 +10,10 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
 ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
     "https://pdfmind-ai-rag-chatbot.vercel.app"
 ]
-
 
 @app.after_request
 def add_cors_headers(response):

@@ -3,12 +3,25 @@ venv/
 __pycache__/
 *.pyc
 
-# Environment variables
+# Environment
 .env
+
+# Uploaded PDFs
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Vector database (if created)
+faiss_index*
+*.faiss
+*.pkl
 
 # Node
 node_modules/
+dist/
 
-# Uploads
-backend/uploads/*
-!backend/uploads/.gitkeep
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db

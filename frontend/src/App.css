@@ -486,3 +486,29 @@ body {
   .header-title { font-size: 22px; }
   .msg-bubble { max-width: 95%; }
 }
+
+
+.msg-bubble p {
+  margin: 0.8rem 0;
+  line-height: 1.8;
+}
+
+.msg-bubble ul,
+.msg-bubble ol {
+  margin: 0.8rem 0;
+  padding-left: 1.5rem;
+}
+
+.msg-bubble li {
+  margin: 0.4rem 0;
+}
+
+.msg-bubble strong {
+  font-weight: 700;
+}
+
+.msg-bubble h1,
+.msg-bubble h2,
+.msg-bubble h3 {
+  margin: 1rem 0 0.6rem;
+}
